@@ -1,23 +1,20 @@
-import datetime as dt
 import smtplib
 import requests
 
-# YOUR INFORMATIONS HERE
-gmail_my_email = "---------------------------@gmail.com"
-gmail_password = "----------------------------"
-gmail_protocol = "smtp.gmail.com"
+# YOUR MAIL AND PASSWORD HERE
+gmail_my_email = "----------------------@gmail.com"
+gmail_password = "-----------------------------"
 
-current_time = dt.datetime.now()
-curren_month = current_time.month
-today = current_time.day
+# IF YOU USE DIFFRENT MAIL DOMAIN CHANGE HERE
+gmail_protocol = "smtp.gmail.com"
 
 
 STOCK_NAME = "TSLA"
 COMPANY_NAME = "Tesla Inc"
 
 # YOUR API KEYS HERE
-STOCK_API_KEY = "-----------------------"
-NEWS_API_KEY = "-------------------"
+STOCK_API_KEY = "-------------------------------------"
+NEWS_API_KEY = "----------------------------------------"
 
 
 STOCK_ENDPOINT = "https://www.alphavantage.co/query"
@@ -31,9 +28,7 @@ stock_api_params = {
 }
 
 news_api_params = {
-    "q": "tesla",
-    "from": "2022-05-09",
-    "sortBy": "publishedAt",
+    "qInTitle": "tesla",
     "apiKey": NEWS_API_KEY
 }
 
@@ -46,29 +41,33 @@ stock_data_list = [value for (
 
 yesterday_data = stock_data_list[0]
 yesterday_closing_price = yesterday_data["4. close"]
-print(yesterday_closing_price)
 
 day_before_yesterday_data = stock_data_list[1]
 day_before_yesterday_closing_price = day_before_yesterday_data["4. close"]
-print(day_before_yesterday_closing_price)
 
 stock_diffrence = abs(float(yesterday_closing_price) -
                       float(day_before_yesterday_closing_price))
 
 stock_diff_percent = (stock_diffrence / float(yesterday_closing_price))*100
 
+
+def send_alert_mail(f_article):
+    mes = f_article.encode("utf-8")
+    with smtplib.SMTP(gmail_protocol, port=587) as connection:
+        connection.starttls()
+        connection.login(user=gmail_my_email, password=gmail_password)
+        connection.sendmail(from_addr=gmail_my_email, to_addrs=gmail_my_email,
+                            msg=f"Subject:Tesla Stock news \n\n {mes}.")
+
+
 if stock_diff_percent > 1:
-    print("news")
+    news_response = requests.get(NEWS_ENDPOINT, params=news_api_params)
+    news_response.raise_for_status()
+    news_data = news_response.json()
+    articles = news_data["articles"]
+    three_articles = articles[:3]
+    formatted_article = [
+        f"{STOCK_NAME}:{round(stock_diff_percent)}% Headline: {article['title']} \n Brief: {article['description']}" for article in three_articles]
 
-print(stock_diff_percent)
-
-news_response = requests.get(NEWS_ENDPOINT, params=news_api_params)
-news_response.raise_for_status()
-news_data = news_response.json()
-
-
-# with smtplib.SMTP(gmail_protocol, port=587) as connection:
-#     connection.starttls()
-#     connection.login(user=gmail_my_email, password=gmail_password)
-#     connection.sendmail(from_addr=gmail_my_email, to_addrs=gmail_my_email,
-#                         msg=f"Subject:Stock news\n\n msg.")
+    for i in formatted_article:
+        send_alert_mail(i)
